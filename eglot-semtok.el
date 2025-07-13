@@ -176,7 +176,8 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
         (params (list :textDocument (eglot--TextDocumentIdentifier)))
         (response-handler #'eglot-semtok--ingest-full-response)
         (final-region nil)
-        (buf (current-buffer)))
+        (buf (current-buffer))
+        (doc-version eglot--versioned-identifier))
     (cond
      ((and (eglot-server-capable :semanticTokensProvider :full :delta)
            (let ((response (plist-get eglot-semtok--cache :response)))
@@ -198,7 +199,7 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
      :success-fn
      (lambda (response)
        (eglot--when-live-buffer buf
-         (eglot-semtok--put-cache :documentVersion eglot--versioned-identifier)
+         (eglot-semtok--put-cache :documentVersion doc-version)
          (eglot-semtok--put-cache :region final-region)
          (funcall response-handler response)
          (when (or fontify-immediately (plist-get eglot-semtok--cache :truncated))
