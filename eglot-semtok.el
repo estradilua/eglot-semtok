@@ -1,4 +1,4 @@
-;;; eglot-semtok.el --- Semantic tokens -*- lexical-binding: t; -*-
+;;; eglot-semtok.el --- Semantic tokens support for Eglot -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2025 Lua Reis <me@lua.blog.br>
 ;; Copyright (C) 2020 emacs-lsp maintainers
@@ -61,33 +61,29 @@ associated with the requesting language server."
   :type 'boolean)
 
 (defcustom eglot-semtok-faces
-  '(("comment" . font-lock-comment-face)
+  '(("namespace" . font-lock-keyword-face)
+    ("type" . font-lock-type-face)
+    ("class" . font-lock-type-face)
+    ("enum" . font-lock-type-face)
+    ("interface" . font-lock-type-face)
+    ("struct" . font-lock-type-face)
+    ("typeParameter" . font-lock-type-face)
+    ("parameter" . font-lock-variable-name-face)
+    ("variable" . font-lock-variable-name-face)
+    ("property" . font-lock-variable-name-face)
+    ("enumMember" . font-lock-constant-face)
+    ("event" . font-lock-variable-name-face)
+    ("function" . font-lock-function-name-face)
+    ("method" . font-lock-function-name-face)
+    ("macro" . font-lock-preprocessor-face)
     ("keyword" . font-lock-keyword-face)
+    ("modifier" . font-lock-function-name-face)
+    ("comment" . font-lock-comment-face)
     ("string" . font-lock-string-face)
     ("number" . font-lock-constant-face)
     ("regexp" . font-lock-string-face)
     ("operator" . font-lock-function-name-face)
-    ("namespace" . font-lock-keyword-face)
-    ("type" . font-lock-type-face)
-    ("struct" . font-lock-type-face)
-    ("class" . font-lock-type-face)
-    ("interface" . font-lock-type-face)
-    ("enum" . font-lock-type-face)
-    ("typeParameter" . font-lock-type-face)
-    ("function" . font-lock-function-name-face)
-    ("method" . font-lock-function-name-face)
-    ("member" . font-lock-variable-name-face)
-    ("field" . font-lock-variable-name-face)
-    ("property" . font-lock-variable-name-face)
-    ("event" . font-lock-variable-name-face)
-    ("macro" . font-lock-preprocessor-face)
-    ("variable" . font-lock-variable-name-face)
-    ("parameter" . font-lock-variable-name-face)
-    ("label" . font-lock-comment-face)
-    ("enumConstant" . font-lock-constant-face)
-    ("enumMember" . font-lock-constant-face)
-    ("dependent" . font-lock-type-face)
-    ("concept" . font-lock-type-face))
+    ("decorator" . font-lock-type-face))
   "Alist of faces to use to highlight semantic tokens.
 Each element is a cons cell whose car is a token type name and cdr is
 the face to use."
@@ -107,13 +103,12 @@ the face to use."
 (defcustom eglot-semtok-modifier-faces
   '(("declaration" . font-lock-type-face)
     ("definition" . font-lock-function-name-face)
-    ("implementation" . font-lock-function-name-face)
     ("readonly" . font-lock-constant-face)
     ("static" . font-lock-keyword-face)
+    ("deprecated" . eglot-diagnostic-tag-deprecated-face)
     ("abstract" . font-lock-keyword-face)
     ("async" . font-lock-preprocessor-face)
     ("modification" . font-lock-function-name-face)
-    ("deprecated" . eglot-diagnostic-tag-deprecated-face)
     ("documentation" . font-lock-doc-face)
     ("defaultLibrary" . font-lock-builtin-face))
   "List of face to use to highlight tokens with modifiers.
