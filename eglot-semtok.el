@@ -406,7 +406,8 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
   "Enable semantic tokens support for Eglot."
   :global nil
   (if eglot-semtok-mode
-      (if (and (cl-typep (eglot-current-server) 'eglot-semtok-server)
+      (if (and (eglot-managed-p)
+               (cl-typep (eglot-current-server) 'eglot-semtok-server)
                (eglot-server-capable :semanticTokensProvider))
           (progn
             (add-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy nil t)
@@ -418,8 +419,6 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
     (remove-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy t)
     (remove-hook 'eglot--document-changed-hook #'eglot-semtok--request-update t)
     (remove-function (local 'font-lock-fontify-region-function) #'eglot-semtok--fontify)))
-
-(add-hook 'eglot-managed-mode-hook #'eglot-semtok-mode)
 
 (provide 'eglot-semtok)
 ;;; eglot-semtok.el ends here
