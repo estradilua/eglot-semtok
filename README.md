@@ -2,7 +2,7 @@
 
 This package is a port of `lsp-mode`'s Semantic Tokens support for Eglot. After thought and experimentation, I became convinced that their implementation already does most things in the optimal way, and therefore there was no point in rewriting the wheel from scratch.
 
-Even if the overall logic and algorithms are taken from `lsp-mode`'s implementation, the code in this package was made more idiomatic and compatible with the Eglot ecosystem by the use of `eieio`, simpler user-facing options and a removal of `dash`. A small logic change is that, after modifying a document, the Eglot client will issue a `full/delta` request instead of a `range` request if `full` information is available the server supports it. This should be more optimal, considering that `delta` requests are usually cheap and prevent a subsequent `full` request to be triggered on idle, saving one request.
+Even if the overall logic and algorithms are taken from `lsp-mode`'s implementation, the code in this package was made more idiomatic and compatible with the Eglot ecosystem by the use of `eieio`, simpler user-facing options and a removal of `dash`.
 
 ## Usage
 
