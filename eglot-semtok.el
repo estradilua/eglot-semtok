@@ -70,7 +70,7 @@ associated with the requesting language server."
     ("typeParameter" . font-lock-type-face)
     ("parameter" . font-lock-variable-name-face)
     ("variable" . font-lock-variable-name-face)
-    ("property" . font-lock-variable-name-face)
+    ("property" . font-lock-property-use-face)
     ("enumMember" . font-lock-constant-face)
     ("event" . font-lock-variable-name-face)
     ("function" . font-lock-function-name-face)
