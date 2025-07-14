@@ -379,7 +379,7 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
            identifiers)))
 
 (defun eglot-semtok--initialize-server (server)
-  "Initialize semantic tokens for SERVER."
+  "Initialize SERVER for semantic tokens."
   (when (cl-typep server 'eglot-semtok-server)
     (cl-destructuring-bind (&key tokenTypes tokenModifiers &allow-other-keys)
         (plist-get (plist-get (eglot--capabilities server)
@@ -418,7 +418,8 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
         (eglot-semtok-mode -1))
     (remove-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy t)
     (remove-hook 'eglot--document-changed-hook #'eglot-semtok--request-update t)
-    (remove-function (local 'font-lock-fontify-region-function) #'eglot-semtok--fontify)))
+    (remove-function (local 'font-lock-fontify-region-function) #'eglot-semtok--fontify)
+    (font-lock-flush)))
 
 (provide 'eglot-semtok)
 ;;; eglot-semtok.el ends here
