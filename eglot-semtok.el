@@ -348,7 +348,7 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
      (push (plist-get edit :data) substrings)
      (setq old-token-index (+ (plist-get edit :start) (plist-get edit :deleteCount)))
      finally do (push (substring old-data old-token-index old-token-count) substrings))
-    (vconcat (nreverse substrings))))
+    (apply #'vconcat (nreverse substrings))))
 
 (defun eglot-semtok--ingest-full/delta-response (response)
   "Handle RESPONSE to semanticTokens/full/delta request."
