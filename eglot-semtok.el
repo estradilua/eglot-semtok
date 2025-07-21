@@ -421,5 +421,7 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
     (remove-function (local 'font-lock-fontify-region-function) #'eglot-semtok--fontify)
     (font-lock-flush)))
 
+(add-hook 'eglot-managed-mode-hook #'eglot-semtok-mode)
+
 (provide 'eglot-semtok)
 ;;; eglot-semtok.el ends here
