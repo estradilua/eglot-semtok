@@ -101,7 +101,7 @@ the face to use."
                                                face-attribute-name-alist))))))
 
 (defcustom eglot-semtok-modifier-faces
-  '(("declaration" . font-lock-type-face)
+  '(("declaration" . font-lock-function-name-face)
     ("definition" . font-lock-function-name-face)
     ("readonly" . font-lock-constant-face)
     ("static" . font-lock-keyword-face)
