@@ -402,6 +402,7 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
   (unless (eglot-managed-p)
     (eglot-semtok-mode -1)))
 
+;;;###autoload
 (define-minor-mode eglot-semtok-mode
   "Enable semantic tokens support for Eglot."
   :global nil
@@ -421,6 +422,7 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
     (remove-function (local 'font-lock-fontify-region-function) #'eglot-semtok--fontify)
     (font-lock-flush)))
 
+;;;###autoload
 (add-hook 'eglot-managed-mode-hook #'eglot-semtok-mode)
 
 (provide 'eglot-semtok)
