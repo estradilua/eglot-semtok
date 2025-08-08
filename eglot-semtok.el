@@ -33,6 +33,7 @@
 
 (require 'eglot)
 
+;;;###autoload
 (defclass eglot-semtok-server (eglot-lsp-server)
   ((semtok-faces
     :initform nil
