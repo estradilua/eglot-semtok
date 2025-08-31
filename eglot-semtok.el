@@ -192,7 +192,6 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
                                         (car final-region) (cdr final-region))))
         (setq response-handler #'eglot-semtok--ingest-range-response)))
       (setq eglot-semtok--waiting-response t)
-      (jsonrpc--debug (eglot--current-server-or-lose) "semtok from %s" buf)
       (eglot--async-request
        (eglot--current-server-or-lose) method params
        :success-fn
@@ -230,7 +229,6 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
        ((or (eq nil faces)
             (eq nil eglot-semtok--cache)
             (eq nil (plist-get eglot-semtok--cache :response)))
-        (jsonrpc--debug (eglot-current-server) "semtok no cache, requesting update")
         (eglot-semtok--request-update)
         ;; default to non-semantic highlighting until first response has arrived
         (funcall orig-fontify beg-orig end-orig loudly))
@@ -252,7 +250,6 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
                                    (> end (cdr token-region)))))
                 (eglot-semtok--put-cache :truncated truncated)
                 (when truncated
-                  (jsonrpc--debug (eglot-current-server) "semtok truncated, requesting update")
                   (eglot-semtok--request-update)))
               (setq beg (max beg (car token-region)))
               (setq end (min end (cdr token-region))))
@@ -336,7 +333,6 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
     (let* ((buf (current-buffer))
            (fun (lambda ()
                   (eglot--when-live-buffer buf
-                    (jsonrpc--debug (eglot-current-server) "semtok full on idle")
                     (eglot-semtok--request nil t)))))
       (when eglot-semtok--idle-timer (cancel-timer eglot-semtok--idle-timer))
       (setq eglot-semtok--idle-timer (run-with-idle-timer 2 nil fun)))))
