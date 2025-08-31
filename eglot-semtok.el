@@ -21,11 +21,7 @@
 ;;  This implementation works by advicing around `font-lock-fontify-region-function' so that it
 ;;  includes fontification information from `eglot-semtok--cache' when it's available for the
 ;;  fontified range. The variable `eglot-semtok--cache', in turn, is populated by responses to
-;;  certain requests. A ranged request is sent initially via `eglot-semtok--request-update' with
-;;  a range that includes the visible portion of the buffer. After an idle time, a full request is
-;;  sent via `eglot-semtok--request-full-on-idle'. Further requests are sent when the buffer is
-;;  modified (via `eglot-semtok--request-update'), or when the fontification function detects that
-;;  the current cache is truncated (i.e. it doesn't cover the entire fontified range).
+;;  LSP requests.
 ;;
 ;;; Code:
 
@@ -141,9 +137,6 @@ the face to use."
                               :formats ["relative"]))))
     (plist-put (plist-put cap :workspace ws) :textDocument td)))
 
-(defvar eglot-semtok-full-request-idle-time 1
-  "Idle time in seconds after which a full semantic tokens request is sent.")
-
 (defvar-local eglot-semtok--idle-timer nil
   "Idle timer to request full semantic tokens.")
 
@@ -203,7 +196,9 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
          (eglot-semtok--put-cache :region final-region)
          (funcall response-handler response)
          (when (or fontify-immediately (plist-get eglot-semtok--cache :truncated))
-           (font-lock-flush (car-safe region) (cdr-safe region)))))
+           (font-lock-flush (car-safe region) (cdr-safe region)))
+         (when (and final-region (not eglot-semtok--idle-timer))
+           (eglot-semtok--request-full-on-idle))))
      :hint #'eglot-semtok--request)))
 
 (defun eglot-semtok--fontify (orig-fontify beg-orig end-orig &optional loudly)
@@ -241,7 +236,7 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
                                    (> end (cdr token-region)))))
                 (eglot-semtok--put-cache :truncated truncated)
                 (when (and truncated (not eglot-semtok--idle-timer))
-                  (eglot-semtok--request-full-on-idle t)))
+                  (eglot-semtok--request-update)))
               (setq beg (max beg (car token-region)))
               (setq end (min end (cdr token-region))))
           (eglot-semtok--put-cache :truncated nil))
@@ -317,18 +312,16 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
                (min (point-max) (+ (or end (window-end)) (* 5 jit-lock-chunk-size))))
          t)))))
 
-(defun eglot-semtok--request-full-on-idle (&optional fontify)
-  "Make a full semantic tokens request after an idle timer.
-If FONTIFY, fontify immediately after."
+(defun eglot-semtok--request-full-on-idle ()
+  "Make a full semantic tokens request after an idle timer."
   (when (eglot-server-capable :semanticTokensProvider)
     (let* ((buf (current-buffer))
            (fun (lambda ()
                   (when (buffer-live-p buf)
                     (with-current-buffer buf
-                      (eglot-semtok--request nil fontify))))))
+                      (eglot-semtok--request nil t))))))
       (when eglot-semtok--idle-timer (cancel-timer eglot-semtok--idle-timer))
-      (setq eglot-semtok--idle-timer
-            (run-with-idle-timer eglot-semtok-full-request-idle-time nil fun)))))
+      (setq eglot-semtok--idle-timer (run-with-idle-timer eglot-send-changes-idle-time nil fun)))))
 
 (defun eglot-semtok--on-refresh (server)
   "Clear semantic tokens within all buffers of SERVER."
@@ -433,7 +426,6 @@ If FONTIFY, fontify immediately after."
             (add-hook 'eglot--document-changed-hook #'eglot-semtok--request-update nil t)
             (add-function :around (local 'font-lock-fontify-region-function)
                   #'eglot-semtok--fontify)
-            (eglot-semtok--request-update)
             (eglot-semtok--request-full-on-idle))
         (eglot-semtok-mode -1))
     (remove-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy t)
