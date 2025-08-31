@@ -110,25 +110,20 @@ the face to use."
     ("documentation" . font-lock-doc-face)
     ("defaultLibrary" . font-lock-builtin-face))
   "List of face to use to highlight tokens with modifiers.
-Each element is a list of the following form: (MODIFIER FACE
-[PRIORITY]).  MODIFIER is a token modifiers name.  FACE is the face to
-use to highlight.  Option PRIORITY is a number whose value should
-be between -100 to 100 (inclusive).  It's default value is 0.
-Set to nil to disable special treatment of modifiers."
+Each element is a cons cell whose car is a modifier name and cdr is
+the face to use."
   :group 'eglot-semtok
   :type `(alist :key-type (string :tag "Token name")
-                :value-type (list (choice (face :tag "Face")
-                                          (plist :tag "Face Attributes"
-                                                 :key-type
-                                                 (choice
-                                                  ,@(mapcar
-                                                     (lambda (cell)
-                                                       `(const :tag ,(capitalize
-                                                                      (cdr cell))
-                                                               ,(car cell)))
-                                                     face-attribute-name-alist))))
-                                  (radio (const :inline t :tag "Use default priority" nil)
-                                         (number :tag "Priority")))))
+                :value-type (choice (face :tag "Face")
+                                    (plist :tag "Face Attributes"
+                                           :key-type
+                                           (choice
+                                            ,@(mapcar
+                                               (lambda (cell)
+                                                 `(const :tag ,(capitalize
+                                                                (cdr cell))
+                                                         ,(car cell)))
+                                               face-attribute-name-alist))))))
 
 (cl-defmethod eglot-client-capabilities ((_ eglot-semtok-server))
   "Return the client capabilities of an `eglot-semtok-server' instance."
