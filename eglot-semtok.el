@@ -355,7 +355,8 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
     (when eglot-semtok--refresh-debounce-timer
       (cancel-timer eglot-semtok--refresh-debounce-timer))
     (setq eglot-semtok--refresh-debounce-timer
-          (run-with-timer 1 nil #'eglot-semtok--on-refresh server))))
+          (run-with-timer 0.5 nil #'eglot-semtok--on-refresh server)))
+  nil)
 
 ;;; Process response
 
