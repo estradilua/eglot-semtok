@@ -338,7 +338,7 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
                   (eglot--when-live-buffer buf
                     (eglot-semtok--request nil t)))))
       (when eglot-semtok--idle-timer (cancel-timer eglot-semtok--idle-timer))
-      (setq eglot-semtok--idle-timer (run-with-idle-timer 2 nil fun)))))
+      (setq eglot-semtok--idle-timer (run-with-idle-timer eglot-send-changes-idle-time nil fun)))))
 
 (defvar eglot-semtok--refresh-debounce-timer nil)
 
