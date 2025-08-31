@@ -317,10 +317,12 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
 (defun eglot-semtok--request-update (&optional beg end)
   "Request semantic tokens update from BEG to END."
   (when (eglot-server-capable :semanticTokensProvider)
-    (eglot-semtok--request
-     (cons (max (point-min) (- (or beg (window-start)) (* 5 jit-lock-chunk-size)))
-           (min (point-max) (+ (or end (window-end)) (* 5 jit-lock-chunk-size))))
-     t)))
+    (when-let* ((win (get-buffer-window)))
+      (with-selected-window win
+        (eglot-semtok--request
+         (cons (max (point-min) (- (or beg (window-start)) (* 5 jit-lock-chunk-size)))
+               (min (point-max) (+ (or end (window-end)) (* 5 jit-lock-chunk-size))))
+         t)))))
 
 (defun eglot-semtok--request-full-on-idle (&optional fontify)
   "Make a full semantic tokens request after an idle timer.
