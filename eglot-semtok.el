@@ -20,14 +20,12 @@
 ;;
 ;;  This implementation works by advicing around `font-lock-fontify-region-function' so that it
 ;;  includes fontification information from `eglot-semtok--cache' when it's available for the
-;;  requested range. If the desired fontification range is not contained in the
-;;  `eglot-semtok--cache' data, and if a request for a bigger range is not pending, it requests
-;;  tokens in a slightly larger range for the LSP server. This data is also requested and updated in
-;;  `eglot--document-changed-hook'. If the server supports `full/delta' requests, then these are
-;;  preferred to ranged requests.
-;;
-;;  TODO: perhaps request the full document on idle, like lsp-mode does? does performance really
-;;  improve when doing this?
+;;  fontified range. The variable `eglot-semtok--cache', in turn, is populated by responses to
+;;  certain requests. A ranged request is sent initially via `eglot-semtok--request-update' with
+;;  a range that includes the visible portion of the buffer. After an idle time, a full request is
+;;  sent via `eglot-semtok--request-full-on-idle'. Further requests are sent when the buffer is
+;;  modified (via `eglot-semtok--request-update'), or when the fontification function detects that
+;;  the current cache is truncated (i.e. it doesn't cover the entire fontified range).
 ;;
 ;;; Code:
 
