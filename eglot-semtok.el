@@ -54,7 +54,6 @@
 
 (defcustom eglot-semtok-honor-refresh-requests nil
   "Whether to honor semanticTokens/refresh requests.
-
 When set to nil, refresh requests will be silently discarded.
 When set to t, semantic tokens will be re-requested for all buffers
 associated with the requesting language server."
@@ -134,6 +133,7 @@ Set to nil to disable special treatment of modifiers."
                                          (number :tag "Priority")))))
 
 (cl-defmethod eglot-client-capabilities ((_ eglot-semtok-server))
+  "Return the client capabilities of an `eglot-semtok-server' instance."
   (let* ((cap (cl-call-next-method))
          (ws (plist-get cap :workspace))
          (td (plist-get cap :textDocument))
@@ -161,14 +161,13 @@ Set to nil to disable special treatment of modifiers."
   (setq eglot-semtok--cache
         (plist-put eglot-semtok--cache k v)))
 
-(defun eglot-region-range (beg end)
+(defun eglot-semtok--region-range (beg end)
   "Return a LSP range representing region BEG to END."
   (list :start (eglot--pos-to-lsp-position beg)
         :end (eglot--pos-to-lsp-position end)))
 
 (defun eglot-semtok--request (region fontify-immediately)
   "Send semantic tokens request to the language server.
-
 A full/delta request will be sent if delta requests are supported by
 the language server, allowed via `eglot-semtok-allow-delta-requests',
 and if a full set of tokens had previously been received.
@@ -199,7 +198,8 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
       (setq method :textDocument/semanticTokens/range)
       (setq final-region region)
       (setq params
-            (plist-put params :range (eglot-region-range (car final-region) (cdr final-region))))
+            (plist-put params :range (eglot-semtok--region-range
+                                      (car final-region) (cdr final-region))))
       (setq response-handler #'eglot-semtok--ingest-range-response)))
     (eglot--async-request
      (eglot--current-server-or-lose) method params
@@ -215,10 +215,9 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
 
 (defun eglot-semtok--fontify (orig-fontify beg-orig end-orig &optional loudly)
   "Apply fonts to retrieved semantic tokens.
-OLD-FONTIFY-REGION is the underlying region fontification function,
-e.g., `font-lock-fontify-region'.
-BEG-ORIG and END-ORIG deliminate the requested fontification region and maybe
-modified by OLD-FONTIFY-REGION.
+ORIG-FONTIFY is the underlying region fontification function, e.g.,
+`font-lock-fontify-region'. BEG-ORIG and END-ORIG deliminate the
+requested fontification region and maybe modified by OLD-FONTIFY-REGION.
 LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
   (with-slots ((modifier-cache semtok-modifier-cache)
                (faces semtok-faces)
@@ -316,7 +315,7 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
         `(jit-lock-bounds ,beg . ,end))))))
 
 (defun eglot-semtok--request-update (&optional beg end)
-  "Request semantic-tokens update."
+  "Request semantic tokens update from BEG to END."
   (when (eglot-server-capable :semanticTokensProvider)
     (eglot-semtok--request
      (cons (max (point-min) (- (or beg (window-start)) (* 5 jit-lock-chunk-size)))
@@ -422,6 +421,7 @@ If FONTIFY, fontify immediately after."
 ;;; Minor mode
 
 (defun eglot-semtok--destroy ()
+  "Disable `eglot-semtok-mode' when Eglot is disabled."
   (unless (eglot-managed-p)
     (eglot-semtok-mode -1)))
 
