@@ -229,12 +229,12 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
        ((or (eq nil faces)
             (eq nil eglot-semtok--cache)
             (eq nil (plist-get eglot-semtok--cache :response)))
-        (eglot-semtok--request-update)
         ;; default to non-semantic highlighting until first response has arrived
         (funcall orig-fontify beg-orig end-orig loudly))
        ((not (= eglot--versioned-identifier
                 (plist-get eglot-semtok--cache :documentVersion)))
-        ;; delay fontification until we have fresh tokens
+        ;; delay fontification until we have fresh tokens or request them
+        (eglot-semtok--request-update beg-orig end-orig)
         '(jit-lock-bounds 0 . 0))
        (t
         (setq old-bounds (funcall orig-fontify beg-orig end-orig loudly))
@@ -319,11 +319,14 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
 (defun eglot-semtok--request-update (&optional beg end)
   "Request semantic tokens update from BEG to END."
   (when (eglot-server-capable :semanticTokensProvider)
-    (when-let* ((win (get-buffer-window nil 'visible)))
-      (with-selected-window win
+    (let* ((range (or (and beg end (cons beg end))
+                      (when-let* ((win (get-buffer-window nil 'visible)))
+                        (cons (window-start win) (window-end win)))))
+           (margin (* 5 jit-lock-chunk-size)))
+      (when range
         (eglot-semtok--request
-         (cons (max (point-min) (- (or beg (window-start)) (* 5 jit-lock-chunk-size)))
-               (min (point-max) (+ (or end (window-end)) (* 5 jit-lock-chunk-size))))
+         (cons (max (point-min) (- (car range) margin))
+               (min (point-max) (+ (cdr range) margin)))
          t)))
     (eglot-semtok--request-full-on-idle)))
 
@@ -344,7 +347,7 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
   (cl-loop
    for ws-buffer in (eglot--managed-buffers server) do
    (with-current-buffer ws-buffer
-     (setq eglot-semtok--cache nil)
+     (eglot-semtok--put-cache :documentVersion nil)
      (when (get-buffer-window nil 'visible)
        (font-lock-flush)))))
 
