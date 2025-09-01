@@ -226,6 +226,7 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
             (setq beg (max beg (car token-region)))
             (setq end (min end (cdr token-region))))
         (eglot-semtok--put-cache :truncated nil))
+      (remove-list-of-text-properties beg end '(font-lock-face))
       (let* ((inhibit-field-text-motion t)
              (data (plist-get (plist-get eglot-semtok--cache :response) :data))
              (i0 0)
@@ -271,7 +272,7 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
                (setq text-property-end
                      (min (point-max) (+ text-property-beg (aref data (+ i 2)))))
                (when face
-                 (put-text-property text-property-beg text-property-end 'face face))
+                 (put-text-property text-property-beg text-property-end 'font-lock-face face))
                ;; Deal with modifiers. We cache common combinations of
                ;; modifiers, storing the faces they resolve to.
                (let* ((modifier-code (aref data (+ i 4)))
@@ -284,8 +285,7 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
                               (push (aref modifier-faces j) faces-to-apply)))
                    (puthash modifier-code faces-to-apply modifier-cache))
                  (dolist (face faces-to-apply)
-                   ;; (put-text-property text-property-beg text-property-end 'fuuck face)))
-                   (add-face-text-property text-property-beg text-property-end face)))
+                   (put-text-property text-property-beg text-property-end 'font-lock-face face)))
                when (> current-line line-max-inclusive) return nil)))))
       `(jit-lock-bounds ,beg . ,end)))))
 
@@ -419,8 +419,7 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
                (cl-typep (eglot-current-server) 'eglot-semtok-server)
                (eglot-server-capable :semanticTokensProvider))
           (progn
-            (add-hook 'jit-lock-functions #'eglot-semtok--fontify 80 t)
-            (setq-local jit-lock-contextually t)
+            (jit-lock-register #'eglot-semtok--fontify 'contextual)
             (add-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy nil t)
             (add-hook 'eglot--document-changed-hook #'eglot-semtok--request-update nil t)
             (jit-lock-refontify))
