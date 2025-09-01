@@ -127,8 +127,8 @@ the face to use."
 (defvar-local eglot-semtok--idle-timer nil
   "Idle timer to request full semantic tokens.")
 
-(defvar-local eglot-semtok--last-request-params nil
-  "Last semantic tokens request parameters.")
+(defvar-local eglot-semtok--last-request-hash nil
+  "Hash of last request parameters and document version.")
 
 (defvar-local eglot-semtok--cache nil)
 
@@ -154,12 +154,13 @@ tokens request will be dispatched.
 
 If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
  upon receiving the response."
-  (let ((method :textDocument/semanticTokens/full)
-        (params (list :textDocument (eglot--TextDocumentIdentifier)))
-        (response-handler #'eglot-semtok--ingest-full-response)
-        (final-region nil)
-        (buf (current-buffer))
-        (doc-version eglot--versioned-identifier))
+  (let* ((method :textDocument/semanticTokens/full)
+         (params (list :textDocument (eglot--TextDocumentIdentifier)))
+         (response-handler #'eglot-semtok--ingest-full-response)
+         (final-region nil)
+         (buf (current-buffer))
+         (doc-version eglot--versioned-identifier)
+         (hash (sxhash (cons doc-version params))))
     (cond
      ((and (eglot-server-capable :semanticTokensProvider :full :delta)
            (let ((response (plist-get eglot-semtok--cache :response)))
@@ -177,8 +178,8 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
             (plist-put params :range (eglot-semtok--region-range
                                       (car final-region) (cdr final-region))))
       (setq response-handler #'eglot-semtok--ingest-range-response)))
-    (unless (equal params eglot-semtok--last-request-params)
-      (setq eglot-semtok--last-request-params params)
+    (unless (eq hash eglot-semtok--last-request-hash)
+      (setq eglot-semtok--last-request-hash hash)
       (eglot--async-request
        (eglot--current-server-or-lose) method params
        :success-fn
