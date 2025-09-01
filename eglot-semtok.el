@@ -18,11 +18,6 @@
 ;;
 ;;; Commentary:
 ;;
-;;  This implementation works by advicing around `font-lock-fontify-region-function' so that it
-;;  includes fontification information from `eglot-semtok--cache' when it's available for the
-;;  fontified range. The variable `eglot-semtok--cache', in turn, is populated by responses to
-;;  LSP requests.
-;;
 ;;; Code:
 
 (require 'eglot)
@@ -193,7 +188,7 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
          (eglot-semtok--put-cache :region final-region)
          (funcall response-handler response)
          (when (or fontify-immediately (plist-get eglot-semtok--cache :truncated))
-           (font-lock-flush (car-safe region) (cdr-safe region)))
+           (jit-lock-refontify (car-safe region) (cdr-safe region)))
          (when final-region (eglot-semtok--request-full-on-idle))))
      :error-fn
      (lambda (_error)
@@ -206,108 +201,93 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
      :timeout 30
      :hint #'eglot-semtok--request)))
 
-(defun eglot-semtok--fontify (orig-fontify beg-orig end-orig &optional loudly)
-  "Apply fonts to retrieved semantic tokens.
-ORIG-FONTIFY is the underlying region fontification function, e.g.,
-`font-lock-fontify-region'. BEG-ORIG and END-ORIG deliminate the
-requested fontification region and maybe modified by OLD-FONTIFY-REGION.
-LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
+(defun eglot-semtok--fontify (beg end)
+  "Apply the cached semantic tokens from BEG to END."
   (with-slots ((modifier-cache semtok-modifier-cache)
                (faces semtok-faces)
                (modifier-faces semtok-modifier-faces))
       (eglot-current-server)
-    (let (old-bounds beg end)
-      (cond
-       ((or (eq nil faces)
-            (eq nil eglot-semtok--cache)
-            (eq nil (plist-get eglot-semtok--cache :response)))
-        (eglot-semtok--request-update beg-orig end-orig)
-        ;; default to non-semantic highlighting until first response has arrived
-        (funcall orig-fontify beg-orig end-orig loudly))
-       ((not (eq eglot--versioned-identifier
-                 (plist-get eglot-semtok--cache :documentVersion)))
-        ;; delay fontification until we have fresh tokens or request them
-        (eglot-semtok--request-update beg-orig end-orig)
-        '(jit-lock-bounds 0 . 0))
-       (t
-        (setq old-bounds (funcall orig-fontify beg-orig end-orig loudly))
-        ;; this is to prevent flickering when semantic token highlighting
-        ;; is layered on top of, e.g., tree-sitter-hl, or clojure-mode's syntax highlighting.
-        (setq beg (min beg-orig (cadr old-bounds))
-              end (max end-orig (cddr old-bounds)))
-        ;; if we're using the response to a ranged request, we'll only be able to fontify within
-        ;; that range (and hence shouldn't clear any highlights outside of that range)
-        (if-let* ((token-region (plist-get eglot-semtok--cache :region)))
-            (progn
-              (let ((truncated (or (< beg (car token-region))
-                                   (> end (cdr token-region)))))
-                (eglot-semtok--put-cache :truncated truncated)
-                (when truncated
-                  (eglot-semtok--request-update beg end)))
-              (setq beg (max beg (car token-region)))
-              (setq end (min end (cdr token-region))))
-          (eglot-semtok--put-cache :truncated nil))
-        (let* ((inhibit-field-text-motion t)
-               (data (plist-get (plist-get eglot-semtok--cache :response) :data))
-               (i0 0)
-               (i-max (1- (length data)))
-               (current-line 1)
-               (line-delta)
-               (column 0)
-               (face)
-               (line-start-pos)
-               (line-min)
-               (line-max-inclusive)
-               (text-property-beg)
-               (text-property-end))
-          (save-mark-and-excursion
-            (save-restriction
-              (widen)
-              (goto-char beg)
-              (goto-char (line-beginning-position))
-              (setq line-min (line-number-at-pos))
-              (with-silent-modifications
-                (goto-char end)
-                (goto-char (line-end-position))
-                (setq line-max-inclusive (line-number-at-pos))
-                (forward-line (- line-min line-max-inclusive))
-                (let ((skip-lines (- line-min current-line)))
-                  (while (and (<= i0 i-max) (< (aref data i0) skip-lines))
-                    (setq skip-lines (- skip-lines (aref data i0)))
-                    (setq i0 (+ i0 5)))
-                  (setq current-line (- line-min skip-lines)))
-                (forward-line (- current-line line-min))
-                (setq line-start-pos (point))
-                (cl-loop
-                 for i from i0 to i-max by 5 do
-                 (setq line-delta (aref data i))
-                 (unless (= line-delta 0)
-                   (forward-line line-delta)
-                   (setq line-start-pos (point))
-                   (setq column 0)
-                   (setq current-line (+ current-line line-delta)))
-                 (setq column (+ column (aref data (1+ i))))
-                 (setq face (aref faces (aref data (+ i 3))))
-                 (setq text-property-beg (+ line-start-pos column))
-                 (setq text-property-end
-                       (min (point-max) (+ text-property-beg (aref data (+ i 2)))))
-                 (when face
-                   (put-text-property text-property-beg text-property-end 'face face))
-                 ;; Deal with modifiers. We cache common combinations of
-                 ;; modifiers, storing the faces they resolve to.
-                 (let* ((modifier-code (aref data (+ i 4)))
-                        (faces-to-apply (gethash modifier-code modifier-cache 'not-found)))
-                   (when (eq 'not-found faces-to-apply)
-                     (setq faces-to-apply nil)
-                     (cl-loop for j from 0 to (1- (length modifier-faces)) do
-                              (when (and (aref modifier-faces j)
-                                         (> (logand modifier-code (ash 1 j)) 0))
-                                (push (aref modifier-faces j) faces-to-apply)))
-                     (puthash modifier-code faces-to-apply modifier-cache))
-                   (dolist (face faces-to-apply)
-                     (add-face-text-property text-property-beg text-property-end face)))
-                 when (> current-line line-max-inclusive) return nil)))))
-        `(jit-lock-bounds ,beg . ,end))))))
+    (cond
+     ((not faces)) ;; not initialized yet; just skip
+     ((not (and eglot-semtok--cache
+                (plist-get eglot-semtok--cache :response)
+                (eq eglot--versioned-identifier (plist-get eglot-semtok--cache :documentVersion))))
+      (eglot-semtok--request-update beg end))
+     (t
+      ;; if we're using the response to a ranged request, we'll only be able to fontify within
+      ;; that range (and hence shouldn't clear any highlights outside of that range)
+      (if-let* ((token-region (plist-get eglot-semtok--cache :region)))
+          (progn
+            (let ((truncated (or (< beg (car token-region))
+                                 (> end (cdr token-region)))))
+              (eglot-semtok--put-cache :truncated truncated)
+              (when truncated
+                (eglot-semtok--request-update beg end)))
+            (setq beg (max beg (car token-region)))
+            (setq end (min end (cdr token-region))))
+        (eglot-semtok--put-cache :truncated nil))
+      (let* ((inhibit-field-text-motion t)
+             (data (plist-get (plist-get eglot-semtok--cache :response) :data))
+             (i0 0)
+             (i-max (1- (length data)))
+             (current-line 1)
+             (line-delta)
+             (column 0)
+             (face)
+             (line-start-pos)
+             (line-min)
+             (line-max-inclusive)
+             (text-property-beg)
+             (text-property-end))
+        (save-mark-and-excursion
+          (save-restriction
+            (widen)
+            (goto-char beg)
+            (goto-char (line-beginning-position))
+            (setq line-min (line-number-at-pos))
+            (with-silent-modifications
+              (goto-char end)
+              (goto-char (line-end-position))
+              (setq line-max-inclusive (line-number-at-pos))
+              (forward-line (- line-min line-max-inclusive))
+              (let ((skip-lines (- line-min current-line)))
+                (while (and (<= i0 i-max) (< (aref data i0) skip-lines))
+                  (setq skip-lines (- skip-lines (aref data i0)))
+                  (setq i0 (+ i0 5)))
+                (setq current-line (- line-min skip-lines)))
+              (forward-line (- current-line line-min))
+              (setq line-start-pos (point))
+              (cl-loop
+               for i from i0 to i-max by 5 do
+               (setq line-delta (aref data i))
+               (unless (= line-delta 0)
+                 (forward-line line-delta)
+                 (setq line-start-pos (point))
+                 (setq column 0)
+                 (setq current-line (+ current-line line-delta)))
+               (setq column (+ column (aref data (1+ i))))
+               (setq face (aref faces (aref data (+ i 3))))
+               (setq text-property-beg (+ line-start-pos column))
+               (setq text-property-end
+                     (min (point-max) (+ text-property-beg (aref data (+ i 2)))))
+               (when face
+                 (put-text-property text-property-beg text-property-end 'face face))
+               ;; Deal with modifiers. We cache common combinations of
+               ;; modifiers, storing the faces they resolve to.
+               (let* ((modifier-code (aref data (+ i 4)))
+                      (faces-to-apply (gethash modifier-code modifier-cache 'not-found)))
+                 (when (eq 'not-found faces-to-apply)
+                   (setq faces-to-apply nil)
+                   (cl-loop for j from 0 to (1- (length modifier-faces)) do
+                            (when (and (aref modifier-faces j)
+                                       (> (logand modifier-code (ash 1 j)) 0))
+                              (push (aref modifier-faces j) faces-to-apply)))
+                   (puthash modifier-code faces-to-apply modifier-cache))
+                 (dolist (face faces-to-apply)
+                   ;; (put-text-property text-property-beg text-property-end 'fuuck face)))
+                   (add-face-text-property text-property-beg text-property-end face)))
+               when (> current-line line-max-inclusive) return nil)))))
+      `(jit-lock-bounds ,beg . ,end)))))
 
 (defun eglot-semtok--request-update (&optional beg end)
   "Request semantic tokens update from BEG to END."
@@ -339,7 +319,7 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
    for ws-buffer in (eglot--managed-buffers server) do
    (with-current-buffer ws-buffer
      (eglot-semtok--put-cache :documentVersion nil)
-     (font-lock-flush))))
+     (jit-lock-refontify))))
 
 (cl-defmethod eglot-handle-request
   ((server eglot-semtok-server) (_method (eql workspace/semanticTokens/refresh)))
@@ -439,16 +419,16 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
                (cl-typep (eglot-current-server) 'eglot-semtok-server)
                (eglot-server-capable :semanticTokensProvider))
           (progn
+            (add-hook 'jit-lock-functions #'eglot-semtok--fontify 80 t)
+            (setq-local jit-lock-contextually t)
             (add-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy nil t)
             (add-hook 'eglot--document-changed-hook #'eglot-semtok--request-update nil t)
-            (add-function :around (local 'font-lock-fontify-region-function)
-                  #'eglot-semtok--fontify)
-            (font-lock-flush))
+            (jit-lock-refontify))
         (eglot-semtok-mode -1))
+    (jit-lock-unregister #'eglot-semtok--fontify)
     (remove-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy t)
     (remove-hook 'eglot--document-changed-hook #'eglot-semtok--request-update t)
-    (remove-function (local 'font-lock-fontify-region-function) #'eglot-semtok--fontify)
-    (font-lock-flush)))
+    (jit-lock-refontify)))
 
 ;;;###autoload
 (add-hook 'eglot-managed-mode-hook #'eglot-semtok-mode)
