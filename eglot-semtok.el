@@ -46,14 +46,6 @@
   :group 'eglot
   :tag "Eglot Semantic tokens")
 
-(defcustom eglot-semtok-honor-refresh-requests t
-  "Whether to honor semanticTokens/refresh requests.
-When set to nil, refresh requests will be silently discarded.
-When set to t, semantic tokens will be re-requested for all buffers
-associated with the requesting language server."
-  :group 'eglot-semtok
-  :type 'boolean)
-
 (defcustom eglot-semtok-faces
   '(("namespace" . font-lock-keyword-face)
     ("type" . font-lock-type-face)
@@ -126,7 +118,7 @@ the face to use."
   (let* ((cap (cl-call-next-method))
          (ws (plist-get cap :workspace))
          (td (plist-get cap :textDocument))
-         (ws (plist-put ws :semanticTokens '(:refreshSupport :json-false)))
+         (ws (plist-put ws :semanticTokens '(:refreshSupport t)))
          (td (plist-put td :semanticTokens
                         (list :dynamicRegistration :json-false
                               :requests '(:range t :full t)
@@ -352,11 +344,10 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
 (cl-defmethod eglot-handle-request
   ((server eglot-semtok-server) (_method (eql workspace/semanticTokens/refresh)))
   "Handle a semanticTokens/refresh request from SERVER."
-  (when eglot-semtok-honor-refresh-requests
-    (when eglot-semtok--refresh-debounce-timer
-      (cancel-timer eglot-semtok--refresh-debounce-timer))
-    (setq eglot-semtok--refresh-debounce-timer
-          (run-with-timer eglot-send-changes-idle-time nil #'eglot-semtok--on-refresh server)))
+  (when eglot-semtok--refresh-debounce-timer
+    (cancel-timer eglot-semtok--refresh-debounce-timer))
+  (setq eglot-semtok--refresh-debounce-timer
+        (run-with-timer eglot-send-changes-idle-time nil #'eglot-semtok--on-refresh server))
   nil)
 
 ;;; Process response
