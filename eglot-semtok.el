@@ -396,16 +396,14 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
           (progn
             (jit-lock-register #'eglot-semtok--fontify 'contextual)
             (add-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy nil t)
-            (add-hook 'eglot--document-changed-hook #'eglot-semtok--request-update nil t)
-            (jit-lock-refontify))
+            (add-hook 'eglot--document-changed-hook #'eglot-semtok--request-update nil t))
         (eglot-semtok-mode -1))
     (jit-lock-unregister #'eglot-semtok--fontify)
     (save-restriction
       (widen)
       (remove-list-of-text-properties (point-min) (point-max) '(font-lock-face)))
     (remove-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy t)
-    (remove-hook 'eglot--document-changed-hook #'eglot-semtok--request-update t)
-    (jit-lock-refontify)))
+    (remove-hook 'eglot--document-changed-hook #'eglot-semtok--request-update t)))
 
 ;;;###autoload
 (add-hook 'eglot-managed-mode-hook #'eglot-semtok-mode)
