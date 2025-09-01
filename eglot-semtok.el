@@ -425,6 +425,9 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
             (jit-lock-refontify))
         (eglot-semtok-mode -1))
     (jit-lock-unregister #'eglot-semtok--fontify)
+    (save-restriction
+      (widen)
+      (remove-list-of-text-properties (point-min) (point-max) '(font-lock-face)))
     (remove-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy t)
     (remove-hook 'eglot--document-changed-hook #'eglot-semtok--request-update t)
     (jit-lock-refontify)))
