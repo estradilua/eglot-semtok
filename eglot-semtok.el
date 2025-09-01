@@ -203,8 +203,8 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
                (modifier-faces semtok-modifier-faces))
       (eglot-current-server)
     (cond
-     ((not faces)) ;; not initialized yet; just skip
-     ((not (and eglot-semtok--cache
+     ((not (and faces
+                eglot-semtok--cache
                 (plist-get eglot-semtok--cache :response)
                 (eq eglot--versioned-identifier (plist-get eglot-semtok--cache :documentVersion))))
       (eglot-semtok--request-update beg end))
