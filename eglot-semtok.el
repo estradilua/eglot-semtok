@@ -311,8 +311,6 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
       (when eglot-semtok--idle-timer (cancel-timer eglot-semtok--idle-timer))
       (setq eglot-semtok--idle-timer (run-with-idle-timer (* 3 eglot-send-changes-idle-time) nil fun)))))
 
-(defvar eglot-semtok--refresh-debounce-timer nil)
-
 (defun eglot-semtok--on-refresh (server)
   "Clear semantic tokens within all buffers of SERVER."
   (cl-loop
@@ -321,14 +319,14 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
      (eglot-semtok--put-cache :documentVersion nil)
      (jit-lock-refontify))))
 
-(cl-defmethod eglot-handle-request
-  ((server eglot-semtok-server) (_method (eql workspace/semanticTokens/refresh)))
-  "Handle a semanticTokens/refresh request from SERVER."
-  (when eglot-semtok--refresh-debounce-timer
-    (cancel-timer eglot-semtok--refresh-debounce-timer))
-  (setq eglot-semtok--refresh-debounce-timer
-        (run-with-timer eglot-send-changes-idle-time nil #'eglot-semtok--on-refresh server))
-  nil)
+(let ((debounce-timer nil))
+  (cl-defmethod eglot-handle-request
+    ((server eglot-semtok-server) (_method (eql workspace/semanticTokens/refresh)))
+    "Handle a semanticTokens/refresh request from SERVER."
+    (when debounce-timer (cancel-timer debounce-timer))
+    (setq debounce-timer
+          (run-with-timer eglot-send-changes-idle-time nil #'eglot-semtok--on-refresh server))
+    nil))
 
 ;;; Process response
 
