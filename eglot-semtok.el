@@ -113,7 +113,7 @@ the face to use."
   (let* ((cap (cl-call-next-method))
          (ws (plist-get cap :workspace))
          (td (plist-get cap :textDocument))
-         (ws (plist-put ws :semanticTokens '(:refreshSupport t)))
+         (ws (plist-put ws :semanticTokens '(:refreshSupport :json-false)))
          (td (plist-put td :semanticTokens
                         (list :dynamicRegistration :json-false
                               :requests '(:range t :full t)
@@ -302,23 +302,6 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
                     (eglot-semtok--request nil t)))))
       (when eglot-semtok--idle-timer (cancel-timer eglot-semtok--idle-timer))
       (setq eglot-semtok--idle-timer (run-with-idle-timer (* 3 eglot-send-changes-idle-time) nil fun)))))
-
-(defun eglot-semtok--on-refresh (server)
-  "Clear semantic tokens within all buffers of SERVER."
-  (cl-loop
-   for ws-buffer in (eglot--managed-buffers server) do
-   (with-current-buffer ws-buffer
-     (eglot-semtok--put-cache :documentVersion nil)
-     (jit-lock-refontify))))
-
-(let ((debounce-timer nil))
-  (cl-defmethod eglot-handle-request
-    ((server eglot-semtok-server) (_method (eql workspace/semanticTokens/refresh)))
-    "Handle a semanticTokens/refresh request from SERVER."
-    (when debounce-timer (cancel-timer debounce-timer))
-    (setq debounce-timer
-          (run-with-timer eglot-send-changes-idle-time nil #'eglot-semtok--on-refresh server))
-    nil))
 
 ;;; Process response
 
