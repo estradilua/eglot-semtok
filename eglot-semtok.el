@@ -322,12 +322,13 @@ LOUDLY will be forwarded to OLD-FONTIFY-REGION as-is."
     (let* ((range (or (and beg end (cons beg end))
                       (when-let* ((win (get-buffer-window nil 'visible)))
                         (cons (window-start win) (window-end win)))))
-           (margin (* 5 jit-lock-chunk-size)))
-      (when (and range (not eglot-semtok--waiting-response))
-        (eglot-semtok--request
-         (cons (max (point-min) (- (car range) margin))
-               (min (point-max) (+ (cdr range) margin)))
-         t)))))
+           (margin (* 3 jit-lock-chunk-size)))
+      (if (and range (not eglot-semtok--waiting-response))
+          (eglot-semtok--request
+           (cons (max (point-min) (- (car range) margin))
+                 (min (point-max) (+ (cdr range) margin)))
+           t)
+       (eglot-semtok--request-full-on-idle)))))
 
 (defun eglot-semtok--request-full-on-idle ()
   "Make a full semantic tokens request after an idle timer."
