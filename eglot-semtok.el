@@ -127,8 +127,8 @@ the face to use."
 (defvar-local eglot-semtok--idle-timer nil
   "Idle timer to request full semantic tokens.")
 
-(defvar-local eglot-semtok--waiting-response nil
-  "Non-nil if a semantic tokens request is outstanding.")
+(defvar-local eglot-semtok--last-request-params nil
+  "Last semantic tokens request parameters.")
 
 (defvar-local eglot-semtok--cache nil)
 
@@ -177,29 +177,21 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
             (plist-put params :range (eglot-semtok--region-range
                                       (car final-region) (cdr final-region))))
       (setq response-handler #'eglot-semtok--ingest-range-response)))
-    (setq eglot-semtok--waiting-response t)
-    (eglot--async-request
-     (eglot--current-server-or-lose) method params
-     :success-fn
-     (lambda (response)
-       (eglot--when-live-buffer buf
-         (setq eglot-semtok--waiting-response nil)
-         (eglot-semtok--put-cache :documentVersion doc-version)
-         (eglot-semtok--put-cache :region final-region)
-         (funcall response-handler response)
-         (when (or fontify-immediately (plist-get eglot-semtok--cache :truncated))
-           (jit-lock-refontify (car-safe region) (cdr-safe region)))
-         (when final-region (eglot-semtok--request-full-on-idle))))
-     :error-fn
-     (lambda (_error)
-       (eglot--when-live-buffer buf
-         (setq eglot-semtok--waiting-response nil)))
-     :timeout-fn
-     (lambda ()
-       (eglot--when-live-buffer buf
-         (setq eglot-semtok--waiting-response nil)))
-     :timeout 30
-     :hint #'eglot-semtok--request)))
+    (unless (equal params eglot-semtok--last-request-params)
+      (setq eglot-semtok--last-request-params params)
+      (eglot--async-request
+       (eglot--current-server-or-lose) method params
+       :success-fn
+       (lambda (response)
+         (eglot--when-live-buffer buf
+           (eglot-semtok--put-cache :documentVersion doc-version)
+           (eglot-semtok--put-cache :region final-region)
+           (funcall response-handler response)
+           (when (or fontify-immediately (plist-get eglot-semtok--cache :truncated))
+             (jit-lock-refontify (car-safe region) (cdr-safe region)))
+           (when final-region (eglot-semtok--request-full-on-idle))))
+       :timeout 30
+       :hint #'eglot-semtok--request))))
 
 (defun eglot-semtok--fontify (beg end)
   "Apply the cached semantic tokens from BEG to END."
@@ -292,14 +284,13 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
 (defun eglot-semtok--request-update (&optional beg end)
   "Request semantic tokens update from BEG to END."
   (when (eglot-server-capable :semanticTokensProvider)
-    (let* ((range (or (and beg end (cons beg end))
-                      (when-let* ((win (get-buffer-window nil 'visible)))
-                        (cons (window-start win) (window-end win)))))
-           (margin (* 3 jit-lock-chunk-size)))
-      (when (and range (not eglot-semtok--waiting-response))
-        (eglot-semtok--request (cons (max (point-min) (- (car range) margin))
-                                     (min (point-max) (+ (cdr range) margin)))
-                               t)))))
+    (when-let* ((range (or (and beg end (cons beg end))
+                           (when-let* ((win (get-buffer-window nil 'visible)))
+                             (cons (window-start win) (window-end win)))))
+                (margin (* 3 jit-lock-chunk-size)))
+      (eglot-semtok--request (cons (max (point-min) (- (car range) margin))
+                                   (min (point-max) (+ (cdr range) margin)))
+                             t))))
 
 (defun eglot-semtok--request-full-on-idle ()
   "Make a full semantic tokens request after an idle timer."
