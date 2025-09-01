@@ -1,9 +1,18 @@
 ;;; eglot-semtok.el --- Semantic tokens support for Eglot -*- lexical-binding: t; -*-
-;;
-;; Copyright (C) 2025 Lua Reis <me@lua.blog.br>
+
+;; Copyright (C) 2025 Lua Viana Reis <me@lua.blog.br>
 ;; Copyright (C) 2020 emacs-lsp maintainers
-;;
-;; This program is free software; you can redistribute it and/or modify
+
+;; Author: Lua Viana Reis <me@lua.blog.br>
+;; Created: 2025-06-02
+;; Version: 1.0.0
+;; Package-Requires: ((emacs "30.1") (eglot "1.17"))
+;; Keywords: faces, languages, convenience
+;; Homepage: https://github.com/estradilua/eglot-semtok
+
+;; This file is not part of GNU Emacs.
+
+;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
 ;; (at your option) any later version.
@@ -15,9 +24,20 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
-;;
+
 ;;; Commentary:
-;;
+
+;; This package implements editor support for semantic tokens in
+;; Eglot. It does so by providing a new server class
+;; `eglot-semtok-server' that extends `eglot-lsp-server', which can be
+;; used in user configurations or extended by major-mode packages.
+
+;; To enable semantic tokens, you can instruct Eglot to instantiate
+;; the server using the `eglot-semtok-server' class by adding it to
+;; your `eglot-server-programs' configuration. For example:
+
+;; (add-to-list 'eglot-server-programs '(c-ts-mode eglot-semtok-server "clangd"))
+
 ;;; Code:
 
 (require 'eglot)
@@ -301,7 +321,7 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
     (let* ((buf (current-buffer))
            (fun (lambda ()
                   (eglot--when-live-buffer buf
-                    (eglot-semtok--request nil t)))))
+                    (eglot-semtok--request nil nil)))))
       (when eglot-semtok--idle-timer (cancel-timer eglot-semtok--idle-timer))
       (setq eglot-semtok--idle-timer (run-with-idle-timer (* 3 eglot-send-changes-idle-time) nil fun)))))
 
@@ -390,14 +410,17 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
   "Enable semantic tokens support for Eglot."
   :global nil
   (if eglot-semtok-mode
-      (if (and (eglot-managed-p)
-               (cl-typep (eglot-current-server) 'eglot-semtok-server)
-               (eglot-server-capable :semanticTokensProvider))
-          (progn
-            (jit-lock-register #'eglot-semtok--fontify 'contextual)
-            (add-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy nil t)
-            (add-hook 'eglot--document-changed-hook #'eglot-semtok--request-update nil t))
-        (eglot-semtok-mode -1))
+      (progn
+        (unless (cl-typep (eglot-current-server) 'eglot-semtok-server)
+          (message "The current Eglot server does not support semantic tokens. Please use `eglot-semtok-server' in your `eglot-server-programs' configuration"))
+        (if (and (eglot-managed-p)
+                 (cl-typep (eglot-current-server) 'eglot-semtok-server)
+                 (eglot-server-capable :semanticTokensProvider))
+            (progn
+              (jit-lock-register #'eglot-semtok--fontify 'contextual)
+              (add-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy nil t)
+              (add-hook 'eglot--document-changed-hook #'eglot-semtok--request-update nil t))
+          (eglot-semtok-mode -1)))
     (jit-lock-unregister #'eglot-semtok--fontify)
     (save-restriction
       (widen)
