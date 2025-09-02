@@ -174,8 +174,13 @@ If FONTIFY is non-nil, refontify after the request completes."
   (let* ((method :textDocument/semanticTokens/full)
          (params (list :textDocument (eglot--TextDocumentIdentifier)))
          (response-handler #'eglot-semtok--ingest-full-response)
+         (last-hash eglot-semtok--last-request-hash)
+         (last-region (cdr last-hash))
          (final-region nil)
          (buf (current-buffer)))
+    (when (and region last-region)
+      (setq region (cons (min (car region) (car last-region))
+                         (max (cdr region) (cdr last-region)))))
     (cond
      ((and (eglot-server-capable :semanticTokensProvider :full :delta)
            (let ((response (plist-get eglot-semtok--cache :response)))
@@ -193,9 +198,8 @@ If FONTIFY is non-nil, refontify after the request completes."
             (plist-put params :range (eglot-semtok--region-range
                                       (car final-region) (cdr final-region))))
       (setq response-handler #'eglot-semtok--ingest-range-response)))
-    (let ((hash (sxhash-equal (cons eglot--versioned-identifier
-                                    params))))
-      (unless (eq hash eglot-semtok--last-request-hash)
+    (let* ((hash (cons eglot--versioned-identifier final-region)))
+      (unless (equal last-hash hash)
         (setq eglot-semtok--last-request-hash hash)
         (eglot--async-request
          (eglot--current-server-or-lose) method params
