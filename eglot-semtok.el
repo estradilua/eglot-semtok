@@ -175,8 +175,7 @@ If FONTIFY is non-nil, refontify after the request completes."
          (params (list :textDocument (eglot--TextDocumentIdentifier)))
          (response-handler #'eglot-semtok--ingest-full-response)
          (final-region nil)
-         (buf (current-buffer))
-         (doc-version eglot--versioned-identifier))
+         (buf (current-buffer)))
     (cond
      ((and (eglot-server-capable :semanticTokensProvider :full :delta)
            (let ((response (plist-get eglot-semtok--cache :response)))
@@ -194,7 +193,8 @@ If FONTIFY is non-nil, refontify after the request completes."
             (plist-put params :range (eglot-semtok--region-range
                                       (car final-region) (cdr final-region))))
       (setq response-handler #'eglot-semtok--ingest-range-response)))
-    (let ((hash (sxhash-equal (cons doc-version params))))
+    (let ((hash (sxhash-equal (cons eglot--versioned-identifier
+                                    params))))
       (unless (eq hash eglot-semtok--last-request-hash)
         (setq eglot-semtok--last-request-hash hash)
         (eglot--async-request
@@ -204,7 +204,7 @@ If FONTIFY is non-nil, refontify after the request completes."
            (eglot--when-live-buffer buf
              (when (eq hash eglot-semtok--last-request-hash)
                (setq eglot-semtok--last-request-hash nil))
-             (eglot-semtok--put-cache :documentVersion doc-version)
+             (eglot-semtok--put-cache :documentVersion eglot--versioned-identifier)
              (eglot-semtok--put-cache :region final-region)
              (funcall response-handler response)
              (when fontify (jit-lock-refontify (car-safe region) (cdr-safe region)))
