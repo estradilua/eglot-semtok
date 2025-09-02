@@ -164,16 +164,11 @@ the face to use."
 
 (defun eglot-semtok--request (region fontify-immediately)
   "Send semantic tokens request to the language server.
-A full/delta request will be sent if delta requests are supported by
-the language server, allowed via `eglot-semtok-allow-delta-requests',
-and if a full set of tokens had previously been received.
-Otherwise, a ranged request will be dispatched if REGION is non-nil,
-ranged requests are supported by the language server, and allowed via
-`eglot-semtok-allow-delta-requests'. In all other cases, a full
-tokens request will be dispatched.
-
-If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
- upon receiving the response."
+A full/delta request will be sent if delta requests are supported by the
+language server and a full set of tokens had previously been received.
+Otherwise, a ranged request will be dispatched if REGION is non-nil and
+ranged requests are supported by the language server. In all other
+cases, a full tokens request will be dispatched."
   (let* ((method :textDocument/semanticTokens/full)
          (params (list :textDocument (eglot--TextDocumentIdentifier)))
          (response-handler #'eglot-semtok--ingest-full-response)
