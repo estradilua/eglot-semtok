@@ -388,8 +388,9 @@ If FONTIFY is non-nil, refontify after the request completes."
             (jit-lock-register #'eglot-semtok--fontify 'contextual)
           (eglot-semtok-mode -1)))
     (jit-lock-unregister #'eglot-semtok--fontify)
-    (eglot--widening
-      (remove-list-of-text-properties (point-min) (point-max) '(font-lock-face)))))
+    (save-restriction
+      (with-silent-modifications
+        (remove-list-of-text-properties (point-min) (point-max) '(font-lock-face))))))
 
 ;;;###autoload
 (add-hook 'eglot-managed-mode-hook #'eglot-semtok-mode)
