@@ -306,24 +306,22 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
 
 (defun eglot-semtok--request-update (&optional beg end)
   "Request semantic tokens update from BEG to END."
-  (when (eglot-server-capable :semanticTokensProvider)
-    (when-let* ((range (or (and beg end (cons beg end))
-                           (when-let* ((win (get-buffer-window nil 'visible)))
-                             (cons (window-start win) (window-end win)))))
-                (margin (* 3 jit-lock-chunk-size)))
-      (eglot-semtok--request (cons (max (point-min) (- (car range) margin))
-                                   (min (point-max) (+ (cdr range) margin)))
-                             t))))
+  (when-let* ((range (or (and beg end (cons beg end))
+                         (when-let* ((win (get-buffer-window nil 'visible)))
+                           (cons (window-start win) (window-end win)))))
+              (margin (* 3 jit-lock-chunk-size)))
+    (eglot-semtok--request (cons (max (point-min) (- (car range) margin))
+                                 (min (point-max) (+ (cdr range) margin)))
+                           t)))
 
 (defun eglot-semtok--request-full-on-idle ()
   "Make a full semantic tokens request after an idle timer."
-  (when (eglot-server-capable :semanticTokensProvider)
-    (let* ((buf (current-buffer))
-           (fun (lambda ()
-                  (eglot--when-live-buffer buf
-                    (eglot-semtok--request nil nil)))))
-      (when eglot-semtok--idle-timer (cancel-timer eglot-semtok--idle-timer))
-      (setq eglot-semtok--idle-timer (run-with-idle-timer (* 3 eglot-send-changes-idle-time) nil fun)))))
+  (let* ((buf (current-buffer))
+         (fun (lambda ()
+                (eglot--when-live-buffer buf
+                  (eglot-semtok--request nil nil)))))
+    (when eglot-semtok--idle-timer (cancel-timer eglot-semtok--idle-timer))
+    (setq eglot-semtok--idle-timer (run-with-idle-timer (* 3 eglot-send-changes-idle-time) nil fun))))
 
 ;;; Process response
 
