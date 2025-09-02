@@ -195,8 +195,6 @@ If FONTIFY is non-nil, refontify after the request completes."
                                       (car final-region) (cdr final-region))))
       (setq response-handler #'eglot-semtok--ingest-range-response)))
     (let ((hash (sxhash-equal (cons doc-version params))))
-      (jsonrpc--debug (eglot-current-server)
-                      "Hash: %s\nLast: %s\nversion: %s" hash eglot-semtok--last-request-hash doc-version)
       (unless (eq hash eglot-semtok--last-request-hash)
         (setq eglot-semtok--last-request-hash hash)
         (eglot--async-request
@@ -225,24 +223,16 @@ If FONTIFY is non-nil, refontify after the request completes."
                 eglot-semtok--cache
                 (plist-get eglot-semtok--cache :response)
                 (eq eglot--versioned-identifier (plist-get eglot-semtok--cache :documentVersion))))
-      (jsonrpc--debug (eglot-current-server) "Semantic tokens cache is invalid due to: %s %s %s %s\nversion: %s"
-                      (not faces)
-                      (not eglot-semtok--cache)
-                      (not (plist-get eglot-semtok--cache :response))
-                      (not (eq eglot--versioned-identifier (plist-get eglot-semtok--cache :documentVersion)))
-                      eglot--versioned-identifier)
       (eglot-semtok--request (cons beg end) t))
      (t
       ;; if we're using the response to a ranged request, we'll only be able to fontify within
       ;; that range (and hence shouldn't clear any highlights outside of that range)
       (when-let* ((token-region (plist-get eglot-semtok--cache :region)))
         (progn
-          (let ((truncated (or (< beg (car token-region))
-                               (> end (cdr token-region)))))
-            (when truncated
-              (jsonrpc--debug (eglot-current-server) "Token region is truncated (%s, %s) for fontification region (%s, %s)"
-                              (car token-region) (cdr token-region) beg end)
-              (eglot-semtok--request (cons beg end) t)))
+          (when (or (< beg (car token-region))
+                    (> end (cdr token-region)))
+            ;; truncated! continue, but request again
+            (eglot-semtok--request (cons beg end) t))
           (setq beg (max beg (car token-region)))
           (setq end (min end (cdr token-region)))))
       (remove-list-of-text-properties beg end '(font-lock-face))
