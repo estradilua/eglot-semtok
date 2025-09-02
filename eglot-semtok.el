@@ -5,7 +5,7 @@
 
 ;; Author: Lua Viana Reis <me@lua.blog.br>
 ;; Created: 2025-06-02
-;; Version: 1.0.0
+;; Version: 1.1.0
 ;; Package-Requires: ((emacs "30.1") (eglot "1.17"))
 ;; Keywords: faces, languages, convenience
 ;; Homepage: https://github.com/estradilua/eglot-semtok
