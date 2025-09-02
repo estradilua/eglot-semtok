@@ -393,12 +393,10 @@ If FONTIFY is non-nil, refontify after the request completes."
         (if (and (eglot-managed-p)
                  (cl-typep (eglot-current-server) 'eglot-semtok-server)
                  (eglot-server-capable :semanticTokensProvider))
-            (progn
-              (jit-lock-register #'eglot-semtok--fontify 'contextual))
+            (jit-lock-register #'eglot-semtok--fontify 'contextual)
           (eglot-semtok-mode -1)))
     (jit-lock-unregister #'eglot-semtok--fontify)
-    (save-restriction
-      (widen)
+    (eglot--widening
       (remove-list-of-text-properties (point-min) (point-max) '(font-lock-face)))))
 
 ;;;###autoload
