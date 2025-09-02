@@ -400,11 +400,6 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
 
 ;;; Minor mode
 
-(defun eglot-semtok--destroy ()
-  "Disable `eglot-semtok-mode' when Eglot is disabled."
-  (unless (eglot-managed-p)
-    (eglot-semtok-mode -1)))
-
 ;;;###autoload
 (define-minor-mode eglot-semtok-mode
   "Enable semantic tokens support for Eglot."
@@ -418,14 +413,12 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
                  (eglot-server-capable :semanticTokensProvider))
             (progn
               (jit-lock-register #'eglot-semtok--fontify 'contextual)
-              (add-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy nil t)
               (add-hook 'eglot--document-changed-hook #'eglot-semtok--request-update nil t))
           (eglot-semtok-mode -1)))
     (jit-lock-unregister #'eglot-semtok--fontify)
     (save-restriction
       (widen)
       (remove-list-of-text-properties (point-min) (point-max) '(font-lock-face)))
-    (remove-hook 'eglot-managed-mode-hook #'eglot-semtok--destroy t)
     (remove-hook 'eglot--document-changed-hook #'eglot-semtok--request-update t)))
 
 ;;;###autoload
