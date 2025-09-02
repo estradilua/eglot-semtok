@@ -431,5 +431,8 @@ If FONTIFY-IMMEDIATELY is non-nil, fontification will be performed immediately
 ;;;###autoload
 (add-hook 'eglot-managed-mode-hook #'eglot-semtok-mode)
 
+(with-eval-after-load 'desktop
+  (add-to-list 'desktop-minor-mode-handlers '(eglot-semtok-mode . ignore)))
+
 (provide 'eglot-semtok)
 ;;; eglot-semtok.el ends here
