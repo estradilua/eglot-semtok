@@ -380,8 +380,12 @@ If FONTIFY is non-nil, refontify after the request completes."
   :global nil
   (if eglot-semtok-mode
       (progn
-        (unless (cl-typep (eglot-current-server) 'eglot-semtok-server)
-          (message "The current Eglot server does not support semantic tokens. Please use `eglot-semtok-server' in your `eglot-server-programs' configuration"))
+        (when (and (eglot-managed-p)
+                   (eglot-server-capable :semanticTokensProvider)
+                   (not (cl-typep (eglot-current-server) 'eglot-semtok-server)))
+          (display-warning 'eglot-semtok
+                           "This server supports semantic tokens but Eglot has not been configured for that.
+Tip: use `eglot-semtok-server' in your `eglot-server-programs' configuration"))
         (if (and (eglot-managed-p)
                  (cl-typep (eglot-current-server) 'eglot-semtok-server)
                  (eglot-server-capable :semanticTokensProvider))
