@@ -136,7 +136,7 @@ the face to use."
          (ws (plist-put ws :semanticTokens '(:refreshSupport t)))
          (td (plist-put td :semanticTokens
                         (list :dynamicRegistration :json-false
-                              :requests '(:range t :full t)
+                              :requests '(:range t :full (:delta t))
                               :tokenModifiers (vconcat (mapcar #'car eglot-semtok-modifier-faces))
                               :overlappingTokenSupport t
                               :multilineTokenSupport t
