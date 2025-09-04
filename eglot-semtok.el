@@ -159,6 +159,43 @@ the face to use."
   (list :start (eglot--pos-to-lsp-position beg)
         :end (eglot--pos-to-lsp-position end)))
 
+;;; Process response
+
+(defun eglot-semtok--ingest-range-response (response)
+  "Handle RESPONSE to semanticTokens/range request."
+  (eglot-semtok--put-cache :response response)
+  (cl-assert (plist-get eglot-semtok--cache :region)))
+
+(defun eglot-semtok--ingest-full-response (response)
+  "Handle RESPONSE to semanticTokens/full request."
+  (eglot-semtok--put-cache :response response)
+  (cl-assert (not (plist-get eglot-semtok--cache :region))))
+
+(defsubst eglot-semtok--apply-delta-edits (old-data edits)
+  "Apply EDITS obtained from full/delta request to OLD-DATA."
+  (let* ((old-token-count (length old-data))
+         (old-token-index 0)
+         (substrings))
+    (cl-loop for edit across edits do
+     (when (< old-token-index (plist-get edit :start))
+       (push (substring old-data old-token-index (plist-get edit :start)) substrings))
+     (push (plist-get edit :data) substrings)
+     (setq old-token-index (+ (plist-get edit :start) (plist-get edit :deleteCount)))
+     finally do (push (substring old-data old-token-index old-token-count) substrings))
+    (apply #'vconcat (nreverse substrings))))
+
+(defun eglot-semtok--ingest-full/delta-response (response)
+  "Handle RESPONSE to semanticTokens/full/delta request."
+  (if-let* ((edits (plist-get response :edits)))
+      (progn
+        (cl-assert (not (plist-get eglot-semtok--cache :region)))
+        (when-let* ((old-data (plist-get (plist-get eglot-semtok--cache :response) :data)))
+          (eglot-semtok--put-cache
+           :response
+           (plist-put response :data (eglot-semtok--apply-delta-edits old-data edits)))))
+    ;; server decided to send full response instead
+    (eglot-semtok--ingest-full-response response)))
+
 (defun eglot-semtok--request (region &optional fontify)
   "Send semantic tokens request to the language server.
 A full/delta request will be sent if delta requests are supported by the
@@ -285,46 +322,6 @@ If FONTIFY is non-nil, refontify after the request completes."
     (when debounce-timer (cancel-timer debounce-timer))
     (setq debounce-timer (run-with-timer 5 nil #'eglot-semtok--on-refresh server))
     nil))
-
-;;; Process response
-
-(defun eglot-semtok--ingest-range-response (response)
-  "Handle RESPONSE to semanticTokens/range request."
-  (eglot-semtok--put-cache :response response)
-  (cl-assert (plist-get eglot-semtok--cache :region)))
-
-(defun eglot-semtok--ingest-full-response (response)
-  "Handle RESPONSE to semanticTokens/full request."
-  (eglot-semtok--put-cache :response response)
-  (cl-assert (not (plist-get eglot-semtok--cache :region))))
-
-(defsubst eglot-semtok--apply-delta-edits (old-data edits)
-  "Apply EDITS obtained from full/delta request to OLD-DATA."
-  (let* ((old-token-count (length old-data))
-         (old-token-index 0)
-         (substrings))
-    (cl-loop
-     for edit across edits
-     do
-     (when (< old-token-index (plist-get edit :start))
-       (push (substring old-data old-token-index (plist-get edit :start)) substrings))
-     (push (plist-get edit :data) substrings)
-     (setq old-token-index (+ (plist-get edit :start) (plist-get edit :deleteCount)))
-     finally do (push (substring old-data old-token-index old-token-count) substrings))
-    (apply #'vconcat (nreverse substrings))))
-
-(defun eglot-semtok--ingest-full/delta-response (response)
-  "Handle RESPONSE to semanticTokens/full/delta request."
-  (if-let* ((edits (plist-get response :edits)))
-      (let ((old-data (plist-get (plist-get eglot-semtok--cache :response) :data)))
-        (cl-assert (not (plist-get eglot-semtok--cache :region)))
-        (when old-data
-          (eglot-semtok--put-cache
-           :response
-           (plist-put response :data
-                      (eglot-semtok--apply-delta-edits old-data edits)))))
-    ;; server decided to send full response instead
-    (eglot-semtok--ingest-full-response response)))
 
 ;;; Initialization
 
