@@ -147,9 +147,6 @@ the face to use."
 (defvar-local eglot-semtok--idle-timer nil
   "Idle timer to request full semantic tokens.")
 
-(defvar-local eglot-semtok--last-request-hash nil
-  "Hash of last request parameters and document version.")
-
 (defvar-local eglot-semtok--cache nil)
 
 (defsubst eglot-semtok--put-cache (k v)
@@ -174,13 +171,8 @@ If FONTIFY is non-nil, refontify after the request completes."
   (let* ((method :textDocument/semanticTokens/full)
          (params (list :textDocument (eglot--TextDocumentIdentifier)))
          (response-handler #'eglot-semtok--ingest-full-response)
-         (last-hash eglot-semtok--last-request-hash)
-         (last-region (cdr last-hash))
          (final-region nil)
          (buf (current-buffer)))
-    (when (and region last-region)
-      (setq region (cons (min (car region) (car last-region))
-                         (max (cdr region) (cdr last-region)))))
     (cond
      ((and (eglot-server-capable :semanticTokensProvider :full :delta)
            (let ((response (plist-get eglot-semtok--cache :response)))
@@ -198,23 +190,18 @@ If FONTIFY is non-nil, refontify after the request completes."
             (plist-put params :range (eglot-semtok--region-range
                                       (car final-region) (cdr final-region))))
       (setq response-handler #'eglot-semtok--ingest-range-response)))
-    (let* ((hash (cons eglot--versioned-identifier final-region)))
-      (unless (equal last-hash hash)
-        (setq eglot-semtok--last-request-hash hash)
-        (eglot--async-request
-         (eglot--current-server-or-lose) method params
-         :success-fn
-         (lambda (response)
-           (eglot--when-live-buffer buf
-             (when (eq hash eglot-semtok--last-request-hash)
-               (setq eglot-semtok--last-request-hash nil))
-             (eglot-semtok--put-cache :documentVersion eglot--versioned-identifier)
-             (eglot-semtok--put-cache :region final-region)
-             (funcall response-handler response)
-             (when fontify (jit-lock-refontify (car-safe region) (cdr-safe region)))
-             (when final-region (eglot-semtok--request-full-on-idle))))
-         :timeout 30
-         :hint #'eglot-semtok--request)))))
+    (eglot--async-request
+     (eglot--current-server-or-lose) method params
+     :success-fn
+     (lambda (response)
+       (eglot--when-live-buffer buf
+         (eglot-semtok--put-cache :documentVersion eglot--versioned-identifier)
+         (eglot-semtok--put-cache :region final-region)
+         (funcall response-handler response)
+         (when fontify (jit-lock-refontify (car-safe region) (cdr-safe region)))
+         (when final-region (eglot-semtok--request-full-on-idle))))
+     :timeout 30
+     :hint #'eglot-semtok--request)))
 
 (defun eglot-semtok--fontify (beg end)
   "Apply the cached semantic tokens from BEG to END."
